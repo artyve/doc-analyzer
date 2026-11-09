@@ -69,7 +69,7 @@ def setup_logging() -> None:
 setup_logging()
 
 
-WEB_DIR = Path(__file__).resolve().parent / "web"
+WEB_DIR = Path(__file__).resolve().parents[2] / "frontend"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 probe_logger = logging.getLogger("uvicorn.error")
 
