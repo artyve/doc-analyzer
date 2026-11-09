@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Document Word Highlighter</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖍️</text></svg>" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">🖍️</span>
+        <span>Document Word Highlighter</span>
+      </div>
+      <div class="doc-info" id="docInfo">No document loaded</div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar" aria-label="Word list">
+        <section class="panel">
+          <h2 class="panel-title">Document</h2>
+          <div id="dropZone" class="dropzone" role="button" tabindex="0" aria-label="Upload a document">
+            <strong>Drop a PDF, TXT or MD</strong>
+            <span class="muted">or click to browse</span>
+          </div>
+          <input id="fileInput" type="file" accept=".pdf,.txt,.md,.markdown,.text" hidden />
+          <p id="uploadStatus" class="status" hidden></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Words to highlight</h2>
+            <button id="clearTerms" class="link-button" type="button">Clear all</button>
+          </div>
+
+          <form id="termForm" class="term-form" autocomplete="off">
+            <input
+              id="termInput"
+              type="text"
+              placeholder="Add a word or phrase…"
+              aria-label="Add a word or phrase"
+              maxlength="200"
+            />
+            <button class="primary" type="submit" aria-label="Add word">Add</button>
+          </form>
+
+          <div class="options">
+            <label class="checkbox">
+              <input type="checkbox" id="optWholeWord" /> Whole word only
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="optCaseSensitive" /> Match case
+            </label>
+          </div>
+
+          <p id="termEmpty" class="empty-hint">
+            No words yet. Add one above, or import a saved list.
+          </p>
+          <ul id="termList" class="term-list"></ul>
+
+          <div class="panel-actions">
+            <div class="button-row">
+              <button id="importBtn" type="button">Import JSON</button>
+              <button id="exportBtn" type="button">Export JSON</button>
+            </div>
+            <input id="importInput" type="file" accept="application/json,.json" hidden />
+            <p class="hint">
+              The JSON keeps each word, its colour, the match options and the enabled state.
+            </p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">Analyse</h2>
+          <div class="button-row">
+            <button id="cloudBtn" type="button" disabled>
+              <span aria-hidden="true">☁️</span>
+              <span>Word Cloud</span>
+            </button>
+            <button id="graphBtn" type="button" disabled>
+              <span aria-hidden="true">🕸️</span>
+              <span>Knowledge Graph</span>
+            </button>
+          </div>
+          <p class="hint">
+            The document's most frequent words. Click one in the cloud to add it to your
+            highlights, or again to remove it.
+          </p>
+          <p class="hint">
+            The knowledge graph extracts things (people, places, entities, objects) and the
+            semantic relationships between them. Requires an OpenRouter API key.
+          </p>
+        </section>
+
+        
+
+        <div class="summary" id="summary" aria-live="polite"></div>
+      </aside>
+
+      <section class="viewer">
+        <div class="viewer-toolbar" id="viewerToolbar" hidden>
+          <div class="toolbar-group">
+            <button id="prevPage" type="button" title="Previous page" aria-label="Previous page">‹</button>
+            <span id="pageIndicator" class="page-indicator">1 / 1</span>
+            <button id="nextPage" type="button" title="Next page" aria-label="Next page">›</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="zoomOut" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+            <span id="zoomLabel" class="zoom-label">100%</span>
+            <button id="zoomIn" type="button" title="Zoom in" aria-label="Zoom in">+</button>
+            <button id="fitWidth" type="button" title="Fit page width">Fit</button>
+          </div>
+          <div class="toolbar-group">
+            <label class="highlight-multiplier">
+              <span>Highlight height</span>
+              <input
+                id="hlMultiplier"
+                type="range"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value="1"
+                aria-label="Highlight height multiplier"
+              />
+              <output id="hlMultiplierValue">1×</output>
+            </label>
+          </div>
+          <div class="toolbar-group toggle-group">
+            <button id="toggleBBoxes" type="button" title="Toggle bounding boxes" class="btn-box-a"><span>A</span></button>
+            <button id="toggleInteractive" type="button" title="Toggle text selection" class="btn-red-a">A</button>
+          </div>
+        </div>
+
+        <div class="viewer-scroll" id="viewerScroll">
+          <div class="viewer-content" id="viewer">
+            <div class="empty-state" id="emptyState">
+              <div class="empty-icon">🖍️</div>
+              <h2>Drop a document to get started</h2>
+              <p class="muted">
+                PDF, plain text or Markdown. Every word on your list gets its own colour, and the
+                list travels in and out as JSON.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <template id="termRowTemplate">
+      <li class="term-row">
+        <input class="term-color" type="color" aria-label="Highlight colour" />
+        <button class="term-word" type="button" title="Jump to next match"></button>
+        <span class="term-count">0</span>
+        <label class="switch" title="Toggle highlighting for this word">
+          <input class="term-enabled" type="checkbox" aria-label="Highlight this word" />
+          <span class="switch-track"></span>
+        </label>
+        <button class="term-delete" type="button" title="Remove word" aria-label="Remove word">×</button>
+      </li>
+    </template>
+
+    <div class="modal-backdrop" id="importModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+        <h2 id="importTitle">Import word list</h2>
+        <p id="importSummary"></p>
+        <p class="hint">Merge keeps your current list and adds anything new. Replace overwrites it.</p>
+        <div class="modal-actions">
+          <button id="mergeImport" class="primary" type="button">Merge</button>
+          <button id="replaceImport" type="button">Replace</button>
+          <button id="cancelImport" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="cloudModal" hidden>
+      <div class="modal cloud-modal" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
+        <div class="cloud-head">
+          <div>
+            <h2 id="cloudTitle">Word cloud</h2>
+            <p id="cloudSubtitle" class="hint"></p>
+          </div>
+          <button id="closeCloud" class="icon-button" type="button" aria-label="Close word cloud">
+            ×
+          </button>
+        </div>
+
+        <div class="cloud-body">
+          <svg id="cloudSvg" class="cloud-svg" role="group" aria-label="Word cloud"></svg>
+          <p id="cloudEmpty" class="cloud-empty" hidden></p>
+        </div>
+
+        <div class="cloud-foot">
+          <label class="checkbox">
+            <input type="checkbox" id="cloudStopwords" /> Include common words
+          </label>
+          <span id="cloudStatus" class="cloud-status" aria-live="polite"></span>
+        </div>
+        <p class="hint">Click a word to add it to your highlights; click again to remove it.</p>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="graphModal" hidden>
+      <div class="modal graph-modal" role="dialog" aria-modal="true" aria-labelledby="graphTitle">
+        <div class="graph-head">
+          <div>
+            <h2 id="graphTitle">Knowledge graph</h2>
+            <p id="graphSubtitle" class="hint"></p>
+          </div>
+          <button id="closeGraph" class="icon-button" type="button" aria-label="Close knowledge graph">
+            ×
+          </button>
+        </div>
+
+        <div class="graph-body">
+          <div id="graphContainer" class="graph-container"></div>
+          <p id="graphEmpty" class="graph-empty" hidden></p>
+        </div>
+
+        <div class="graph-foot">
+          <div class="graph-foot-left">
+            <span id="graphStatus" class="graph-status" aria-live="polite"></span>
+            <button id="centerGraph" type="button" title="Fit graph" aria-label="Fit graph">
+              Fit
+            </button>
+            <button id="autoLayoutBtn" type="button" title="Auto layout" aria-label="Auto layout">
+              Auto Layout
+            </button>
+          </div>
+          <button id="saveGraphLayout" type="button" title="Save layout" aria-label="Save layout">
+            💾
+          </button>
+        </div>
+        <p class="hint">Drag the background to pan, wheel to zoom, drag a node to move it.</p>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    
+
+    <script src="js/chart.umd.min.js"></script>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
